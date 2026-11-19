@@ -168,9 +168,43 @@ async function galleryPage(e) {
       return `<a href="?p=${esc(p)}"><img loading="lazy" alt="" src="${base}/c_fill,w_360,h_360,q_auto,f_auto/${esc(x.public_id)}.jpg"></a>`;
     }).join('');
     $('#app').innerHTML = `<h2 style="font:600 20px Georgia,serif;margin:4px 0 12px">Event photos <small style="color:var(--mut);font-size:14px">(${list.length})</small></h2>
+      ${list.length ? `<button class="btn" id="zipAll" style="width:100%;margin-bottom:12px">${ICON.save} Download all photos (ZIP)</button>` : ''}
       <div class="grid">${items || '<p>No photos yet.</p>'}</div>${cta()}`;
+    if (list.length) $('#zipAll').onclick = () => downloadAll(e, list);
   } catch {
     $('#app').innerHTML = `<div class="wait">The event gallery isn’t available right now.</div>${cta()}`;
+  }
+}
+
+// Zip every photo of the event in the browser (free: no server), then save it.
+async function downloadAll(e, list) {
+  const btn = $('#zipAll');
+  btn.disabled = true;
+  try {
+    if (!window.JSZip) await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = () => rej(new Error('could not load zip tool'));
+      document.head.append(s);
+    });
+    const zip = new JSZip();
+    let n = 0;
+    for (const x of list) {
+      btn.textContent = `Preparing ${++n} of ${list.length}…`;
+      const blob = await (await fetch(`${base}/${x.public_id}.jpg`)).blob();
+      zip.file(`rustyrose-photobooth-${String(n).padStart(3, '0')}.jpg`, blob);
+    }
+    btn.textContent = 'Zipping…';
+    const out = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(out);
+    a.download = `rustyrose-photobooth-${e}.zip`;
+    document.body.append(a); a.click(); a.remove();
+    btn.textContent = 'Downloaded ✓';
+  } catch (err) {
+    btn.textContent = 'Download failed – try again';
+  } finally {
+    btn.disabled = false;
   }
 }
 
