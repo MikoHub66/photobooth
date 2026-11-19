@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RustyRose Photo Booth</title>
+<meta name="description" content="Your photo from the RustyRose Photography photo booth. Save it, share it, and book RustyRose for your next event.">
+<meta property="og:title" content="RustyRose Photography Photo Booth">
+<meta property="og:description" content="Photo booth fun by RustyRose Photography. Book yours for your next event!">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#1f1714">
+<script src="config.js"></script>
+<style>
+  :root { --ink: #2a1f1b; --mut: #7a6a62; --rose: #b8664a; --rose-d: #96503a; --bg: #faf6f3; --card: #fff; --line: #ecdfd7; --dark: #1f1714; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #f4e6dc; --mut: #b9a397; --bg: #160f0d; --card: #221815; --line: #3a2a24; --rose: #d9886a; --rose-d: #e6a084; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+  header { background: var(--dark); color: #f4e6dc; text-align: center; padding: 18px 16px 14px; }
+  header a { color: inherit; text-decoration: none; }
+  header h1 { margin: 0; font: 600 24px Georgia, 'Times New Roman', serif; letter-spacing: .02em; }
+  header p { margin: 4px 0 0; font-size: 11px; letter-spacing: .32em; text-transform: uppercase; color: #d99a7e; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .photo { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.12); }
+  .photo img { width: 100%; display: block; border-radius: 8px; min-height: 200px; background: #00000010; }
+  .wait { text-align: center; padding: 60px 16px; color: var(--mut); }
+  .spinner { width: 34px; height: 34px; border: 3px solid var(--line); border-top-color: var(--rose); border-radius: 50%; margin: 0 auto 14px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 6px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font: 600 15px inherit; font-family: inherit; text-decoration: none; cursor: pointer; }
+  .btn.primary { grid-column: 1 / -1; background: var(--rose); border-color: var(--rose); color: #fff; font-size: 17px; }
+  .btn.primary:active { background: var(--rose-d); }
+  .btn svg { width: 20px; height: 20px; flex: none; }
+  .hint { color: var(--mut); font-size: 13px; text-align: center; margin: 6px 0 0; }
+  .caption { margin-top: 18px; background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+  .caption b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--mut); margin-bottom: 4px; }
+  .cta { margin-top: 22px; background: var(--dark); color: #f4e6dc; border-radius: 16px; padding: 20px 18px; text-align: center; }
+  .cta h2 { margin: 0 0 6px; font: 600 21px Georgia, serif; }
+  .cta p { margin: 0 0 14px; color: #d8c2b6; font-size: 14px; }
+  .cta .links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .cta a { color: #1f1714; background: #f4e6dc; padding: 10px 16px; border-radius: 99px; text-decoration: none; font-weight: 600; font-size: 14px; }
+  .cta a.alt { background: transparent; color: #f4e6dc; border: 1px solid #6b5248; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .grid a { display: block; aspect-ratio: 1; overflow: hidden; border-radius: 8px; background: #00000010; }
+  .grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .more { display: block; text-align: center; margin: 16px 0 0; color: var(--rose); font-weight: 600; }
+  footer { text-align: center; color: var(--mut); font-size: 12px; padding: 24px 16px 40px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 10px 16px; border-radius: 99px; font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><a id="homeLink" href="#"><h1>RustyRose Photography</h1><p>Photo Booth</p></a></header>
+<main id="app"></main>
+<footer>Photos by <span id="fBiz">RustyRose Photography</span> · <a id="fSite" href="#" style="color:inherit">website</a></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+const C = window.BOOTH;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const q = new URLSearchParams(location.search);
+const base = `https://res.cloudinary.com/${encodeURIComponent(C.cloudName)}/image/upload`;
+const ICON = {
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>',
+  save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  fb: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 8V6.5c0-.7.5-1 1-1h2V2h-3c-3 0-4 2-4 4.3V8H7v3.5h3V22h4V11.5h3l.5-3.5H14z"/></svg>'
+};
+
+const caption = () => C.caption
+  .replace('{handle}', C.instagramHandle || C.business)
+  .replace('{website}', C.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''));
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 2600); }
+async function copyCaption(silent) {
+  try { await navigator.clipboard.writeText(caption()); if (!silent) toast('Caption copied – paste it into your post'); return true; }
+  catch { if (!silent) toast('Press and hold the caption to copy it'); return false; }
+}
+
+function cta() {
+  const links = [
+    `<a href="${esc(C.bookUrl || C.website)}">Book your event</a>`,
+    `<a class="alt" href="${esc(C.website)}">See ${esc(C.photographer || '')}${C.photographer ? '’s' : 'our'} work</a>`,
+    C.facebook ? `<a class="alt" href="${esc(C.facebook)}">Facebook</a>` : '',
+    C.instagram ? `<a class="alt" href="${esc(C.instagram)}">Instagram</a>` : ''
+  ].join('');
+  return `<section class="cta"><h2>Loved the photo booth?</h2>
+    <p>${esc(C.business)} brings the booth – and beautiful portraits – to weddings, parties and events.</p>
+    <div class="links">${links}</div></section>`;
+}
+
+// ---------- single photo ----------
+function photoPage(p) {
+  if (!/^[a-z0-9-]+\/[a-z0-9]+$/.test(p)) return notFound();
+  const id = `${C.cloudFolder}/${p}`;
+  const url = `${base}/${id}.jpg`;
+  const dlUrl = `${base}/fl_attachment:rustyrose-photobooth-${p.split('/')[1]}/${id}.jpg`;
+  const event = p.split('/')[0];
+  const pageUrl = location.href;
+  $('#app').innerHTML = `
+    <div class="photo"><div class="wait" id="wait"><div class="spinner"></div>Your photo is on its way…<br><small>This usually takes a few seconds.</small></div>
+      <img id="img" alt="Your photo booth picture" hidden></div>
+    <div class="actions">
+      <button class="btn primary" id="share">${ICON.share} Share to Instagram, Facebook…</button>
+      <a class="btn" id="save" href="${esc(dlUrl)}">${ICON.save} Save photo</a>
+      <button class="btn" id="copy">${ICON.copy} Copy caption</button>
+      <a class="btn" id="fbBtn" style="grid-column:1/-1" target="_blank" rel="noopener"
+         href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}&quote=${encodeURIComponent(caption())}">${ICON.fb} Post link on Facebook</a>
+    </div>
+    <p class="hint" id="hint">iPhone tip: press and hold the photo, then “Save to Photos”.</p>
+    <div class="caption"><b>Suggested caption</b>${esc(caption())}</div>
+    ${cta()}
+    <a class="more" href="?e=${esc(event)}">See all photos from this event →</a>`;
+
+  let blob = null, tries = 0;
+  const img = $('#img');
+  const load = () => { img.src = `${url}?v=${tries}`; };
+  img.onload = async () => {
+    $('#wait').hidden = true; img.hidden = false;
+    try { blob = await (await fetch(img.src)).blob(); } catch {}
+  };
+  img.onerror = () => { if (++tries < 60) setTimeout(load, 3000); else $('#wait').innerHTML = 'We couldn’t find this photo yet. Please try again in a minute.'; };
+  load();
+
+  $('#copy').onclick = () => copyCaption();
+  $('#share').onclick = async () => {
+    copyCaption(true); // Instagram drops shared text, so keep it on the clipboard too
+    const file = blob && new File([blob], 'rustyrose-photobooth.jpg', { type: 'image/jpeg' });
+    try {
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: caption(), title: 'RustyRose Photo Booth' });
+        toast('Caption is copied too – paste it in your post');
+      } else if (navigator.share) {
+        await navigator.share({ url: pageUrl, text: caption(), title: 'RustyRose Photo Booth' });
+      } else {
+        location.href = dlUrl;
+        toast('Photo saved – caption copied');
+      }
+    } catch (e) { if (e.name !== 'AbortError') toast('Sharing not available – use Save photo'); }
+  };
+}
+
+// ---------- event gallery (needs Cloudinary "Resource list" enabled) ----------
+async function galleryPage(e) {
+  if (!/^[a-z0-9-]+$/.test(e)) return notFound();
+  $('#app').innerHTML = `<div class="wait"><div class="spinner"></div>Loading event photos…</div>`;
+  try {
+    const r = await fetch(`https://res.cloudinary.com/${encodeURIComponent(C.cloudName)}/image/list/${e}.json?t=${Date.now()}`);
+    if (!r.ok) throw new Error(r.status);
+    const list = (await r.json()).resources.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const items = list.map(x => {
+      const p = x.public_id.slice(C.cloudFolder.length + 1);
+      return `<a href="?p=${esc(p)}"><img loading="lazy" alt="" src="${base}/c_fill,w_360,h_360,q_auto,f_auto/${esc(x.public_id)}.jpg"></a>`;
+    }).join('');
+    $('#app').innerHTML = `<h2 style="font:600 20px Georgia,serif;margin:4px 0 12px">Event photos <small style="color:var(--mut);font-size:14px">(${list.length})</small></h2>
+      <div class="grid">${items || '<p>No photos yet.</p>'}</div>${cta()}`;
+  } catch {
+    $('#app').innerHTML = `<div class="wait">The event gallery isn’t available right now.</div>${cta()}`;
+  }
+}
+
+function notFound() { $('#app').innerHTML = `<div class="wait">Photo not found.</div>${cta()}`; }
+
+$('#homeLink').href = C.website; $('#fSite').href = C.website; $('#fBiz').textContent = C.business;
+if (q.get('p')) photoPage(q.get('p'));
+else if (q.get('e')) galleryPage(q.get('e'));
+else $('#app').innerHTML = cta();
+</script>
+</body>
+</html>
