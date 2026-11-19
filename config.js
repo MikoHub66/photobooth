@@ -2,6 +2,7 @@
 window.BOOTH = {
   cloudName: 'YOUR_CLOUD_NAME',          // Cloudinary cloud name (same as in the booth app)
   cloudFolder: 'rustyrose-booth',        // must match "Cloud folder" in the booth app
+  keepDays: 90,                          // must match "Keep photos online (days)" in the booth app
 
   business: 'RustyRose Photography',
   photographer: 'Heidi',

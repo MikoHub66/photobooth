@@ -97,7 +97,17 @@ function cta() {
 function photoPage(p) {
   if (!/^[a-z0-9-]+\/[a-z0-9]+$/.test(p)) return notFound();
   const id = `${C.cloudFolder}/${p}`;
-  const url = `${base}/${id}.jpg`;
+  const url = `${base}/${id}.jpg`;                               // stored phone-size JPEG: used for share + save
+  const viewUrl = `${base}/c_limit,w_1200,h_1200,f_auto,q_auto/${id}.jpg`; // compressed WebP/AVIF for viewing
+  // Event ids start with YYMMDD; photos are removed from the cloud after C.keepDays.
+  const m = p.match(/^(\d\d)(\d\d)(\d\d)-/);
+  if (m && C.keepDays) {
+    const taken = new Date(2000 + +m[1], +m[2] - 1, +m[3]);
+    if (Date.now() - taken > (C.keepDays + 1) * 86400000) {
+      $('#app').innerHTML = `<div class="wait">This photo booth picture has expired.<br><small>Photos stay online for ${C.keepDays} days after the event.</small></div>${cta()}`;
+      return;
+    }
+  }
   const dlUrl = `${base}/fl_attachment:rustyrose-photobooth-${p.split('/')[1]}/${id}.jpg`;
   const event = p.split('/')[0];
   const pageUrl = location.href;
@@ -118,10 +128,11 @@ function photoPage(p) {
 
   let blob = null, tries = 0;
   const img = $('#img');
-  const load = () => { img.src = `${url}?v=${tries}`; };
+  const load = () => { img.src = `${viewUrl}?v=${tries}`; };
   img.onload = async () => {
     $('#wait').hidden = true; img.hidden = false;
-    try { blob = await (await fetch(img.src)).blob(); } catch {}
+    // JPEG (not WebP) for sharing: Instagram/Facebook accept it everywhere.
+    try { blob = await (await fetch(`${url}?v=${tries}`)).blob(); } catch {}
   };
   img.onerror = () => { if (++tries < 60) setTimeout(load, 3000); else $('#wait').innerHTML = 'We couldn’t find this photo yet. Please try again in a minute.'; };
   load();
