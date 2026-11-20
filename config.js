@@ -1,6 +1,6 @@
 // Edit these, then commit — the share page picks them up immediately.
 window.BOOTH = {
-  cloudName: 'YOUR_CLOUD_NAME',          // Cloudinary cloud name (same as in the booth app)
+  cloudName: 'pvyn7mbw',                 // Cloudinary cloud name (same as in the booth app)
   cloudFolder: 'rustyrose-booth',        // must match "Cloud folder" in the booth app
   keepDays: 90,                          // must match "Keep photos online (days)" in the booth app
 
