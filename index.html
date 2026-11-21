@@ -91,7 +91,16 @@ const caption = () => (eventTitle ? C.caption : C.captionNoEvent)
   .replace('{facebook}', C.facebookHandle || '')
   .replace('{tags}', (C.hashtags || []).join(' '))
   .replace(/ {2,}/g, ' ');
-const decodeTitle = r => { const t = r && r.context && r.context.custom && r.context.custom.title; try { return t ? decodeURIComponent(t) : ''; } catch { return t || ''; } };
+// "Khyra and Justin Wedding" -> "Khyra and Justin's Wedding"; "Emma Bridal Shower" -> "Emma's Bridal Shower".
+// Only when the title starts with a name (or two joined by and/&) followed by an event word, and has no 's yet.
+const EVENT_WORDS = 'Wedding|Wedding Reception|Reception|Rehearsal Dinner|Engagement|Engagement Party|Anniversary|Bridal Shower|Baby Shower|Shower|Bachelorette|Bachelor Party|Birthday|Birthday Party|Graduation|Graduation Party|Retirement|Retirement Party|Sweet 16|Quinceañera|Celebration|Party';
+const possessive = t => {
+  const m = t.match(new RegExp(`^([A-Za-z][\\w.-]*(?:\\s+(?:and|&)\\s+[A-Za-z][\\w.-]*)?)\\s+((?:${EVENT_WORDS})\\b.*)$`, 'i'));
+  if (!m || /['’]s?$/.test(m[1])) return t;
+  if (!/\s(?:and|&)\s/i.test(m[1]) && /^(Party|Celebration|Shower|Reception|Anniversary)\b/i.test(m[2])) return t; // "Company Party" stays
+  return `${m[1]}'s ${m[2]}`;
+};
+const decodeTitle = r => { let t = r && r.context && r.context.custom && r.context.custom.title; try { t = t ? decodeURIComponent(t) : ''; } catch {} return possessive((t || '').trim()); };
 // Every photo of an event (newest first) + its title. Needs Cloudinary "Resource list" enabled.
 async function eventList(e) {
   const r = await fetch(`https://res.cloudinary.com/${encodeURIComponent(C.cloudName)}/image/list/${e}.json?t=${Date.now()}`);
